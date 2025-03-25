@@ -1,0 +1,245 @@
+---
+title: "Situación problema (parte 1)"
+subtitle: "Modelo de regresión"
+author: "Carlos Ito, Juan Pablo Escobar, Fernanda Gómez, Antonio Marban"
+date: "MA1031: Análisis estadístico"
+output: 
+  html_document: 
+    toc: yes
+    highlight: kate
+    theme: readable
+    number_sections: yes
+---
+
+# Situación problema: Los factores de impacto y su relación con la eficiencia de sueño
+
+Se quiere predecir la eficiencia de sueño de una persona en función de diversas variables.
+
+# Conociendo nuestras variables
+
+````{r}
+
+datos<-na.omit(read.csv("Sleep_Efficiency.csv",header = TRUE))
+attach(datos)
+head(datos)
+````
+Podemos ver los nombres de nuestras variables, así como los tipos de datos que las componen.
+
+````{r}
+str(datos)
+````
+
+# Estadística descriptiva
+
+Hacemos la estadística descriptiva para analizar y resumir datos de manera que podamos comprender mejor las características fundamentales de nuestro conjunto de datos. Mediante el uso de los cuartiles, podemos obtener información clave sobre la distribución, la tendencia central, la dispersión y la presencia de valores atípicos en los datos.
+
+````{r}
+summary(datos)
+````
+
+## Graficas descriptivas
+
+Para visualizar estos datos descriptivos utilizamos diagramas de caja y bigotes.
+
+````{r}
+
+cuanti<- cbind(Sleep.efficiency,Age,Sleep.duration,Awakenings,Caffeine.consumption,Alcohol.consumption,Exercise.frequency)
+
+boxplot(cuanti[,1], horizontal = T, main="Sleep Efficiency")  # grafica la primera variable de ese arreglo
+boxplot(cuanti[,2], horizontal = T, main="Age")
+boxplot(cuanti[,3], horizontal = T, main="Sleep Duration")
+boxplot(cuanti[,4], horizontal = T, main="Awakenings")
+boxplot(cuanti[,5], horizontal = T, main="Caffeine Consumption")  # grafica la primera variable de ese arreglo
+boxplot(cuanti[,6], horizontal = T, main="Alcohol Consumption")
+boxplot(cuanti[,7], horizontal = T, main="Exercise Frequency")
+
+````
+
+# Modelo de regresión simple
+
+Nuestro primer modelo será una regresión simple para investigar en qué medida podemos explicar la eficiencia del sueño utilizando una sola variable.
+
+Hicimos la regresión simple con cada una de nuestras variables cuantitativas y la mejor que encontramos fue la siguiente:
+
+````{r}
+modelo1<- lm(Sleep.efficiency~Awakenings)
+summary(modelo1)
+````
+
+## Diagnóstico del modelo 
+
+Buscamos ver que tan bien se acoplan nuestros datos al modelo.
+
+Queremos ver linealidad, pero como se puede observar en las gráficas los datos no son completamente lineales y en la gráfica de Q-Q residuales vemos que en los bordes, los datos se separan mucho de la línea, lo que indica una asimetría en la distribución de los residuos.
+
+
+````{r}
+
+plot(modelo1)
+
+````
+
+***
+**CONCLUSIONES**
+
+>* Tras probar regresiones simples con cada una de las variables, el máximo de r^2 que pudimos conseguir fue un 30%.
+>* Es por ello por lo que concluimos que una sola variable no es suficiente para explicar la eficiencia de sueño.
+>* Ahora consideraremos la inclusión de múltiples variables independientes para obtener un modelo más completo y preciso. Buscar un modelo que sea capaz de incorporar la información obtenida de otras variables.
+
+*** 
+
+# Relación entre las variables
+
+Antes de proponer nuestro modelo múltiple, revisemos la correlación entre todas las variables involucradas.
+
+Aquí podemos ver que no hay mucha correlación entre nuestra variable de estudio Sleep Efficiency y las demás variables cuantitativas, por lo que comenzamos a dudar sobre la relación entre las variables con las que buscamos explicar la eficiencia del sueño y como esto nos afectara en el modelo final.
+
+````{r}
+
+library(corrplot)
+corrplot(cor(cuanti))   # correlograma
+
+````
+
+# Modelo de regresión múltiple
+
+## Primer modelo de regresión múltiple
+
+Para comenzar haremos un modelo de regresión múltiple que involucre a todas nuestras variables cuantitativas:
+
+````{r}
+
+modelo1<- lm(Sleep.efficiency~Age+Sleep.duration+Awakenings+Caffeine.consumption+Alcohol.consumption+Exercise.frequency)
+
+modelo1
+
+summary(modelo1)
+
+````
+
+### Diagnóstico del primer modelo
+
+Podemos ver que el modelo ya nos representa mejor nuestra variable, con una r^2 de 43% y un p-value de 2.2e-16.
+
+Aquí también podemos ver el p-value de cada una de nuestras variables que buscamos que sean menores a .05 En caso de no serlo consideramos que debe de quitarse del modelo.
+
+## Gráficas de diagnóstico
+
+Observamos que el modelo mejoro bastante, ahora las gráficas son mucho más lineales, pero esperamos mejorar este modelo al quitar las variables que no respetan el .05 de nuestro valor de riesgo.
+
+````{r}
+
+plot(modelo1)
+
+````
+
+## Tabla ANOVA
+
+Nos fijamos en la suma de cuadrados de nuestras variables y de los residuales. Lo que esperaremos ver es que la suma de cuadrados de la variable fuera mayor a la de residuos ya que esto indicaría que el factor tiene un efecto significativo en la variable de respuesta.
+
+Como la suma de cuadrados es menor a la de residuos entonces el efecto de nuestras variables en la eficiencia del sueño es baja y la mayoría de la variabilidad se debe a otros factores no incluidos en el modelo.
+
+````{r}
+
+anova(modelo1)
+
+````
+
+# Selección de variables
+
+Utilizamos step con direccion both para ver que modelos nos devueve R.
+
+````{r}
+
+step(object = modelo1, direction = "both", trace = 1)
+
+````
+
+Lo visualizaremos utilizando R^2 y BIC
+
+````{r}
+library(leaps)
+modelo1_subset <- regsubsets(Sleep.efficiency~Age+Sleep.duration+Awakenings+Caffeine.consumption+Alcohol.consumption+Exercise.frequency, data =datos, nbest=2, nvmax=13)
+
+par(mfrow=c(1, 2))
+plot(modelo1_subset, scale="adjr2", main=expression(R[Adj]^2))
+plot(modelo1_subset, scale="bic", main="BIC")
+
+````
+
+# Modelo final
+
+Tanto el step como la R^2 y BIC nos devolvieron la misma fórmula (Sleep.efficiency ~ Age + Awakenings + Alcohol.consumption + Exercise.frequency), por lo que será la que utilizaremos para nuestro modelo final.
+
+Podemos ver que el modelo si mejoro, pero muy poco, nuestra R^2 aumento en solo .002 y nuestro valor-p se mantuvo igual.
+
+````{r}
+
+modelo_f<- lm(Sleep.efficiency ~ Age + Awakenings + Alcohol.consumption + Exercise.frequency)
+
+summary(modelo_f)
+
+````
+
+## Diagnostico del Modelo Final
+
+En estas graficas podemos ver que los datos se acoplan mejor al modelo, vemos mayor linealidad. Sin embargo el cambio es mínimo en comparación a nuestro primero modelo de regresión múltiple.
+
+````{r}
+
+plot(modelo_f)
+
+````
+
+## Durbin-Watson
+
+Dado que el valor de Durbin-Watson está cerca de 2 (el valor objetivo), indica que no hay evidencia suficiente para rechazar la hipótesis nula de no autocorrelación. Esto significa que no se ha detectado autocorrelación significativa en los residuos del modelo.
+
+El valor de p de 0.382 es mayor que el .05 que utilizamos, lo que respalda aún más la falta de evidencia para rechazar la hipótesis nula.
+
+Los resultados indican que no se ha encontrado autocorrelación significativa en los residuos del modelo, lo que sugiere que el modelo no muestra patrones de correlación entre los residuos.
+
+````{r}
+
+library(car)
+
+durbinWatsonTest(modelo_f)
+
+````
+
+***
+**CONCLUSIÓN MODELO MÚLTIPLE**
+ 
+>* Según el valor de $R^2$, el modelo final explica el 43.8% de la variabilidad de la eficiencia de sueño promedio. Así que ha mejorado un poco con respecto al primer modelo múltiple.
+
+>* El modelo final que conseguimos consideramos que no es representativo de la variabilidad de la eficiencia de sueño, tras hacer la selección de variables y la regresión múltiple solo pudimos conseguir explicar un 43.8%. Esto se debe a los datos que utilizamos, las variables utilizadas no son suficientes para explicar de manera significativa la eficiencia de sueño, es decir que hay muchas otras variables que afectan a la eficiencia de sueño.
+
+>* Concluimos que nos hacen falta más datos para poder explicar la eficiencia de sueño.
+
+
+***
+
+# Pronóstico
+
+Aunque no consideremos que nuestro modelo sea fiable, se nos pide hacer un pronóstico de datos como se puede ver a continuación:
+
+````{r}
+
+max(Age)
+max(Awakenings)
+max(Alcohol.consumption)
+max(Exercise.frequency)
+
+nuevosdatos <- data.frame(Age = c(69,72,75),
+                          Awakenings = c(4,7,10),
+                          Alcohol.consumption = c(5, 8, 11),
+                          Exercise.frequency = c(5,8,11))
+````
+
+Las predicciones junto con sus intervalos de predicción:
+
+````{r}
+
+predict(object=modelo_f, newdata=nuevosdatos, interval = "prediction")
+
+````
